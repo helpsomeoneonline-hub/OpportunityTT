@@ -1,0 +1,12 @@
+{
+  "id": "candidate-demo-001",
+  "region": "Central",
+  "years_experience": 4,
+  "skills": ["Customer Service", "Inventory", "Microsoft Office", "Driving"],
+  "qualifications": ["5 CXC passes"],
+  "licences": ["Heavy-T"],
+  "preferred_job_families": ["Driver", "Storekeeper"],
+  "preferred_categories": ["Logistics and Transport", "Retail and Sales"],
+  "preferred_regions": ["Central", "South"],
+  "preferred_employment_types": ["Full-time"]
+}
