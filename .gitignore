@@ -1,0 +1,34 @@
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+local.properties
+
+# Android / Gradle
+.gradle/
+build/
+**/build/
+.idea/
+*.iml
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Data / source documents
+*.pdf
+*.xlsx
+*.xls
+*.csv
+data/private/
+data/raw/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
