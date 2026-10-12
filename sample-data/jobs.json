@@ -1,0 +1,39 @@
+[
+  {
+    "id": "job-demo-001",
+    "title": "Heavy-T Driver",
+    "job_family": "Driver",
+    "category": "Logistics and Transport",
+    "region": "Central",
+    "employment_type": "Full-time",
+    "skills": ["Driving", "Customer Service"],
+    "hard_requirements": [
+      {"type": "licence", "value": "Heavy-T"}
+    ],
+    "preferred_years_experience": 3
+  },
+  {
+    "id": "job-demo-002",
+    "title": "Storekeeper",
+    "job_family": "Storekeeper",
+    "category": "Retail and Sales",
+    "region": "South",
+    "employment_type": "Full-time",
+    "skills": ["Inventory", "Microsoft Office"],
+    "hard_requirements": [],
+    "preferred_years_experience": 2
+  },
+  {
+    "id": "job-demo-003",
+    "title": "Licensed Electrician",
+    "job_family": "Electrician",
+    "category": "Construction",
+    "region": "Central",
+    "employment_type": "Full-time",
+    "skills": ["Electrical Installation"],
+    "hard_requirements": [
+      {"type": "licence", "value": "Wireman Licence"}
+    ],
+    "preferred_years_experience": 3
+  }
+]
