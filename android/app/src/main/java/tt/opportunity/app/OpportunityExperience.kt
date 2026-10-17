@@ -197,7 +197,7 @@ internal fun OpportunityExperience() {
                             FilterChip(
                                 selected = employer,
                                 onClick = { selectRole(true) },
-                                label = { Text("Hire staff") },
+                                label = { Text("Employer drafts") },
                                 leadingIcon = { if (employer) Icon(Icons.Default.Check, null, Modifier.size(15.dp)) }
                             )
                         }
@@ -244,7 +244,7 @@ internal fun OpportunityExperience() {
                             onClick = { contactJob(context, selectedJob) },
                             modifier = Modifier.weight(1f).heightIn(min = 51.dp)
                         ) {
-                            Text(if (selectedJob.contact.isBlank()) "No contact listed" else "Apply / contact")
+                            Text(if (selectedJob.contact.isBlank()) "No contact listed" else "Contact advertiser")
                             Spacer(Modifier.width(5.dp))
                             Icon(Icons.Default.ArrowForward, null, Modifier.size(17.dp))
                         }
@@ -283,6 +283,7 @@ internal fun OpportunityExperience() {
                         profile = data.profile,
                         onSearch = { keyword = it; tab = 1 },
                         onViewAll = { tab = 1 },
+                        onRegion = { region = it; keyword = ""; tab = 1 },
                         onOpen = { selectedId = it.id },
                         onToggle = { toggleSaved(it) },
                         onProfile = { tab = 3 }
@@ -380,15 +381,15 @@ private fun V3JobCard(
             }
             if (result != null) {
                 Text(
-                    if (result.eligible) "Profile fit: " + result.score + "% • estimated"
-                    else "Some stated requirements need checking",
+                    if (result.eligible) result.label + " from your preferences (estimated)"
+                    else "Check stated mandatory requirements",
                     color = if (result.eligible) Blue else Color(0xFF985319),
                     fontSize = 12.sp, fontWeight = FontWeight.SemiBold
                 )
             }
             HorizontalDivider(color = Color(0xFFEAF0F4))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (job.sourcePage > 0) "17 Oct 2026 • Printed classifieds" else "Local private draft", color = Subtle, fontSize = 11.sp,
+                Text(if (job.sourcePage > 0) "Express • " + job.sourceDate + " • not verified" else "Private draft • not published", color = Subtle, fontSize = 11.sp,
                     modifier = Modifier.weight(1f))
                 Text("View job", color = Blue, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 Spacer(Modifier.width(4.dp))
@@ -415,55 +416,111 @@ private fun V3SearchBox(value: String, onChange: (String) -> Unit, hint: String 
 private fun V3Home(
     jobs: List<Job>, profileReady: Boolean, saved: Set<String>,
     applicationStages: Map<String, String>, profile: Candidate,
-    onSearch: (String) -> Unit, onViewAll: () -> Unit,
-    onOpen: (Job) -> Unit, onToggle: (Job) -> Unit, onProfile: () -> Unit
+    onSearch: (String) -> Unit, onRegion: (String) -> Unit,
+    onViewAll: () -> Unit, onOpen: (Job) -> Unit,
+    onToggle: (Job) -> Unit, onProfile: () -> Unit
 ) {
     var quickSearch by rememberSaveable { mutableStateOf("") }
     val highlights = remember(jobs, profile, profileReady) {
-        if (profileReady)
-            jobs.sortedByDescending { match(profile, it).score }.take(12)
-        else jobs.take(12)
+        if (profileReady) jobs.sortedWith(
+            compareByDescending<Job> { match(profile, it).eligible }
+                .thenByDescending { match(profile, it).score }
+        ).take(8) else jobs.take(8)
     }
+    val needsCheck = remember(jobs) { jobs.count { it.needsReview } }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(17.dp)
     ) {
         item {
-            V3Heading("Find your next job", "Trinidad & Tobago • October 17 classifieds")
-            Spacer(Modifier.height(13.dp))
-            V3SearchBox(quickSearch, { quickSearch = it })
+            Text("A better way to find work.", fontSize = 26.sp,
+                fontWeight = FontWeight.ExtraBold, color = Dark, lineHeight = 32.sp)
+            Spacer(Modifier.height(5.dp))
+            Text("Real local listings, clearer details, fewer wasted searches.",
+                color = Subtle, fontSize = 14.sp, lineHeight = 20.sp)
+            Spacer(Modifier.height(15.dp))
+            V3SearchBox(quickSearch, { quickSearch = it }, "Job, skill, employer or area")
             Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = { onSearch(quickSearch) },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)
-            ) { Icon(Icons.Default.Search, null); Spacer(Modifier.width(8.dp)); Text("Search all jobs") }
+            Button(onClick = { onSearch(quickSearch.trim()) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                shape = RoundedCornerShape(15.dp)) {
+                Icon(Icons.Default.Search, null)
+                Spacer(Modifier.width(9.dp))
+                Text("Find jobs", fontWeight = FontWeight.Bold)
+            }
         }
         item {
             ElevatedCard(
                 colors = CardDefaults.elevatedCardColors(containerColor = SoftBlue),
-                shape = RoundedCornerShape(18.dp)
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp),
+                shape = RoundedCornerShape(20.dp)
             ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text(jobs.size.toString() + " positions from the newspaper",
-                        fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = Dark)
-                    Text("Real printed advertisements from the 17 October 2026 Trinidad Express, pp. 22–24.",
-                        fontSize = 13.sp, color = Subtle)
-                    Text("Vacancies and advertiser details have not been independently verified.",
-                        fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Dark)
-                    TextButton(onClick = onViewAll) { Text("Browse every listing  →") }
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Newspaper, null, tint = Blue)
+                        Spacer(Modifier.width(8.dp))
+                        Text("17 OCTOBER 2026 EDITION", color = Blue,
+                            fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                    Text(jobs.size.toString() + " advertised positions",
+                        color = Dark, fontWeight = FontWeight.ExtraBold, fontSize = 23.sp)
+                    Text("Extracted from Trinidad Express Classifieds, pages 22–24.",
+                        color = Dark, fontSize = 13.sp)
+                    Text("Publication confirmed; job availability and advertiser identity not independently verified.",
+                        color = Subtle, fontSize = 12.sp, lineHeight = 17.sp)
+                    if (needsCheck > 0) {
+                        Text(needsCheck.toString() + " entries have details that should be checked against the newspaper.",
+                            color = Color(0xFF8A501D), fontSize = 12.sp)
+                    }
+                    TextButton(onClick = onViewAll, contentPadding = PaddingValues(0.dp)) {
+                        Text("Explore all " + jobs.size + " listings")
+                        Spacer(Modifier.width(6.dp))
+                        Icon(Icons.Default.ArrowForward, null, Modifier.size(16.dp))
+                    }
+                }
+            }
+        }
+        item {
+            Text("Browse by area", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Spacer(Modifier.height(7.dp))
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("Central", "North", "East", "South", "Tobago").forEach { area ->
+                    AssistChip(onClick = { onRegion(area) }, label = { Text(area) },
+                        leadingIcon = { Icon(Icons.Default.Place, null, Modifier.size(17.dp)) })
+                }
+            }
+        }
+        item {
+            Text("Popular searches", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Spacer(Modifier.height(7.dp))
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("Driver", "Cashier", "Security", "Cook", "Cleaner", "Clerk").forEach { word ->
+                    AssistChip(onClick = { onSearch(word) }, label = { Text(word) })
                 }
             }
         }
         if (!profileReady) {
             item {
-                ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = Color.White)) {
-                    Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Person, null, tint = Blue, modifier = Modifier.size(29.dp))
-                        Spacer(Modifier.width(12.dp))
+                ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(18.dp),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)) {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(44.dp).background(SoftBlue, RoundedCornerShape(13.dp)),
+                            contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Person, null, tint = Blue)
+                        }
+                        Spacer(Modifier.width(11.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("See jobs matching your skills", fontWeight = FontWeight.Bold)
-                            Text("Add a private profile. No account required.", color = Subtle, fontSize = 12.sp)
+                            Text("Find jobs that suit you", fontWeight = FontWeight.Bold)
+                            Text("Add your skills and preferred area. Private and saved on this device.",
+                                color = Subtle, fontSize = 12.sp, lineHeight = 17.sp)
                         }
                         TextButton(onClick = onProfile) { Text("Set up") }
                     }
@@ -472,21 +529,29 @@ private fun V3Home(
         }
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Featured listings", fontWeight = FontWeight.Bold, fontSize = 20.sp,
-                    modifier = Modifier.weight(1f))
+                Column(Modifier.weight(1f)) {
+                    Text(if (profileReady) "Suggested for your profile" else "Explore today's edition",
+                        fontWeight = FontWeight.Bold, fontSize = 19.sp)
+                    Text(if (profileReady) "Suggestions are estimates, not employer decisions."
+                        else "Advertisements published 17 October 2026.",
+                        color = Subtle, fontSize = 12.sp)
+                }
                 TextButton(onClick = onViewAll) { Text("See all") }
             }
         }
-        if (jobs.isEmpty()) {
-            item { V3Notice("Unable to load newspaper listings. Please reopen the app or reinstall the latest APK.") }
+        if (jobs.isEmpty()) item {
+            V3Notice("The classifieds list could not be opened. Try restarting the app or installing an updated APK.")
         }
         items(highlights, key = { it.id }) { job ->
-            V3JobCard(job, job.id in saved, if (profileReady) match(profile, job) else null,
+            V3JobCard(job, job.id in saved,
+                if (profileReady) match(profile, job) else null,
                 onOpen = { onOpen(job) }, onToggle = { onToggle(job) })
         }
-        item { Text("Saved: " + saved.size + " • Applications tracked: " + applicationStages.size +
-                "\nListings are stored in the app; there is no automatic live update.",
-            color = Subtle, fontSize = 12.sp) }
+        item {
+            Text("Saved: " + saved.size + "  •  Tracking: " + applicationStages.size +
+                "\nThis offline edition does not refresh automatically. Check with advertisers before applying.",
+                color = Subtle, fontSize = 12.sp, lineHeight = 18.sp)
+        }
     }
 }
 
@@ -636,7 +701,7 @@ private fun V3Details(job: Job, matched: Result?, stage: String, onStage: (Strin
                 HorizontalDivider()
                 if (job.sourcePage > 0) {
                     Text("SOURCE: Trinidad Express Classifieds", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Blue)
-                    Text("Printed Saturday, 17 October 2026 • newspaper page " + job.sourcePage,
+                    Text("Published " + job.sourceDate + " • newspaper page " + job.sourcePage,
                         color = Subtle, fontSize = 12.sp)
                 } else {
                     Text("LOCAL DRAFT: Visible on this phone only", color = Subtle, fontSize = 12.sp)
@@ -667,12 +732,12 @@ private fun V3Details(job: Job, matched: Result?, stage: String, onStage: (Strin
         }
         if (matched != null) V3Section("Your fit to this job") {
             Text(if (matched.eligible)
-                matched.score.toString() + "% approximate fit from available details"
+                matched.label + " based on limited advert details"
                 else "Your profile may lack one or more stated mandatory requirements",
                 fontWeight = FontWeight.SemiBold, color = if (matched.eligible) Blue else Color(0xFF935124))
             matched.reasons.forEach { V3Bullet(it) }
             matched.gaps.forEach { V3Bullet(it) }
-            Text("This is guidance from the limited classified text—not an employer decision or guarantee.",
+            Text("This is an estimate based on limited information, not a guarantee of eligibility or an employer decision.",
                 color = Subtle, fontSize = 12.sp)
         }
         V3Section("Contact the advertiser") {
