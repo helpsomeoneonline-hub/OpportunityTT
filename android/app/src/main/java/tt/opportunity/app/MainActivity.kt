@@ -1,12 +1,16 @@
 package tt.opportunity.app
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -65,7 +69,11 @@ data class Job(
     val years: Double,
     val pay: String,
     val description: String,
-    val demo: Boolean
+    val demo: Boolean,
+    val contact: String = "",
+    val sourcePage: Int = 0,
+    val sourceDate: String = "",
+    val needsReview: Boolean = false
 )
 
 data class AppData(
@@ -125,33 +133,13 @@ private fun match(candidate: Candidate, job: Job): Result {
     return Result(true, score, label, reasons, gaps)
 }
 
-private fun sampleJobs(): List<Job> = listOf(
-    Job("demo-1", "Retail sales associate", "Sample retail business", "Chaguanas", "Full-time", "Retail",
-        listOf("Customer service", "Sales", "Cash handling"), emptyList(), "", "", 1.0,
-        "Pay not provided", "Assist shoppers, manage stock, and handle transactions. Demonstration listing; not an actual vacancy.", true),
-    Job("demo-2", "Administrative assistant", "Sample office", "Port of Spain", "Full-time", "Administration",
-        listOf("Microsoft Excel", "Data entry", "Customer service"), emptyList(), "", "", 1.0,
-        "Pay not provided", "Support records, scheduling and front-desk administration. Demonstration listing.", true),
-    Job("demo-3", "Delivery driver", "Sample delivery company", "San Fernando", "Full-time", "Logistics",
-        listOf("Driving", "Customer service", "Route planning"), emptyList(), "", "Class 3 driving permit", 2.0,
-        "Pay not provided", "Handle daily delivery routes. A valid Class 3 driving permit is a sample mandatory condition.", true),
-    Job("demo-4", "Customer support representative", "Sample service company", "Arima", "Part-time", "Customer service",
-        listOf("Customer service", "Communication", "Computer literacy"), emptyList(), "", "", 0.0,
-        "Pay not provided", "Help clients by phone and email. Demonstration listing.", true),
-    Job("demo-5", "Pharmacy assistant", "Sample pharmacy", "San Fernando", "Full-time", "Healthcare",
-        listOf("Stock management", "Customer service"), emptyList(), "Pharmacy assistant certificate", "", 1.0,
-        "Pay not provided", "Support stock and customer operations. Qualification is a sample mandatory condition.", true),
-    Job("demo-6", "Junior electrician", "Sample trades business", "Tobago", "Contract", "Skilled trades",
-        listOf("Electrical installation", "Safety procedures"), listOf("Electrical installation"), "", "", 1.0,
-        "Pay not provided", "Assist a qualified electrician with site tasks. Demonstration listing.", true)
-)
-
-private fun sampleCandidates(): List<Candidate> = listOf(
-    Candidate("c1", "Demo candidate A", "Chaguanas", listOf("Customer service", "Sales", "Cash handling"), years = 2.0, categories = listOf("Retail"), demo = true),
-    Candidate("c2", "Demo candidate B", "Port of Spain", listOf("Microsoft Excel", "Data entry", "Customer service"), years = 4.0, categories = listOf("Administration"), demo = true),
-    Candidate("c3", "Demo candidate C", "San Fernando", listOf("Driving", "Route planning", "Customer service"), licences = listOf("Class 3 driving permit"), years = 3.0, categories = listOf("Logistics"), demo = true),
-    Candidate("c4", "Demo candidate D", "Arima", listOf("Communication", "Computer literacy", "Customer service"), years = 1.0, categories = listOf("Customer service"), demo = true)
-)
+private fun loadPublishedJobs(context: Context): List<Job> =
+    try {
+        context.assets.open("classified_jobs_20261017.json").bufferedReader().use { reader ->
+            val arr = JSONObject(reader.readText()).getJSONArray("jobs")
+            (0 until arr.length()).mapNotNull { arr.optJSONObject(it)?.let(::parseJob) }
+        }
+    } catch (_: Exception) { emptyList() }
 
 private fun Candidate.toJson() = JSONObject().apply {
     put("id", id); put("name", name); put("region", region)
@@ -163,6 +151,8 @@ private fun Job.toJson() = JSONObject().apply {
     put("type", type); put("category", category); put("skills", JSONArray(skills))
     put("hardSkills", JSONArray(hardSkills)); put("qualification", qualification); put("licence", licence)
     put("years", years); put("pay", pay); put("description", description)
+    put("contact", contact); put("sourcePage", sourcePage); put("sourceDate", sourceDate)
+    put("needsReview", needsReview)
 }
 private fun strings(o: JSONObject, k: String): List<String> {
     val arr = o.optJSONArray(k) ?: return emptyList()
@@ -178,7 +168,9 @@ private fun parseJob(o: JSONObject) = Job(
     region = o.optString("region"), type = o.optString("type", "Full-time"), category = o.optString("category"),
     skills = strings(o, "skills"), hardSkills = strings(o, "hardSkills"),
     qualification = o.optString("qualification"), licence = o.optString("licence"),
-    years = o.optDouble("years", 0.0), pay = o.optString("pay"), description = o.optString("description"), demo = false
+    years = o.optDouble("years", 0.0), pay = o.optString("pay"), description = o.optString("description"), demo = false,
+    contact = o.optString("contact"), sourcePage = o.optInt("sourcePage"),
+    sourceDate = o.optString("sourceDate"), needsReview = o.optBoolean("needsReview")
 )
 
 class LocalStore(context: Context) {
@@ -221,8 +213,10 @@ private fun OpportunityTTApp() {
     fun update(value: AppData) { data = value; store.save(value) }
     var hiring by rememberSaveable { mutableStateOf(false) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    val jobs = remember(data.localJobs) { sampleJobs() + data.localJobs }
-    val profileReady = data.profile.name.isNotBlank() && data.profile.skills.isNotEmpty()
+    val publishedJobs = remember { loadPublishedJobs(context.applicationContext) }
+    val jobs = remember(data.localJobs) { publishedJobs + data.localJobs }
+    val profileReady = data.profile.name.isNotBlank() &&
+        (data.profile.skills.isNotEmpty() || data.profile.categories.isNotEmpty() || data.profile.region.isNotBlank())
     MaterialTheme(
         colorScheme = lightColorScheme(
             primary = Teal, onPrimary = Color.White,
@@ -262,7 +256,7 @@ private fun OpportunityTTApp() {
             },
             bottomBar = {
                 NavigationBar(containerColor = Color.White) {
-                    val names = if (hiring) listOf("My posts", "Candidates", "Post job")
+                    val names = if (hiring) listOf("My drafts", "Preview", "Post job")
                                 else listOf("Find jobs", "Saved", "My profile")
                     val icons = listOf(Icons.Default.Search, Icons.Default.Bookmark, if (hiring) Icons.Default.Business else Icons.Default.Person)
                     names.forEachIndexed { index, title ->
@@ -325,64 +319,119 @@ private fun OpportunityTTApp() {
 
 @Composable
 private fun JobCard(job: Job, result: Result?, isSaved: Boolean, onClick: () -> Unit) {
-    ElevatedCard(onClick = onClick, modifier = Modifier.fillMaxWidth(),
+    ElevatedCard(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(17.dp), elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
+        shape = RoundedCornerShape(17.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
-                    Text(job.title, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(job.employer, fontSize = 13.sp, color = Muted)
+                    Text(job.title, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    if (job.employer != "Employer not named") {
+                        Text(job.employer, fontSize = 13.sp, color = Muted)
+                    }
                 }
                 if (isSaved) Icon(Icons.Default.Bookmark, "Saved job", tint = Teal)
             }
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Tag(job.region); Tag(job.type); Tag(if (job.demo) "SAMPLE JOB" else "ON THIS DEVICE")
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Tag(job.region)
+                Tag(job.category)
+                if (job.sourcePage > 0) Tag("Express • p.${job.sourcePage}")
+                else Tag("LOCAL DRAFT")
             }
+            if (job.pay.isNotBlank()) Text(job.pay, color = Navy, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            if (job.contact.isNotBlank()) Text(
+                job.contact, color = Muted, fontSize = 12.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis
+            )
             if (result != null) {
                 HorizontalDivider()
-                Text(if (!result.eligible) "Not eligible • mandatory requirements missing"
-                     else "${result.score}% • ${result.label}", color = if (result.eligible) Teal else Color(0xFFAC5138),
-                     fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Text(
+                    if (!result.eligible) "Stated requirement not met"
+                    else "${result.score}% • ${result.label} (estimated)",
+                    color = if (result.eligible) Teal else Color(0xFFAC5138),
+                    fontWeight = FontWeight.SemiBold, fontSize = 13.sp
+                )
             }
-            Text("Tap to view details and requirements", fontSize = 12.sp, color = Muted)
+            if (job.needsReview) Text("Some printed details need checking", color = Color(0xFF97513A), fontSize = 12.sp)
+            Text("View details and contact →", fontSize = 12.sp, color = Teal, fontWeight = FontWeight.SemiBold)
         }
     }
 }
 
 @Composable
 private fun JobDetail(job: Job, result: Result?, saved: Boolean, onSave: (() -> Unit)?, dismiss: () -> Unit) {
+    val context = LocalContext.current
+    val firstNumber = remember(job.contact) {
+        Regex("(?:\\+?1[ -]?)?(?:868[- ]?)?(\\d{3})[- ]?(\\d{4})")
+            .find(job.contact)?.let { it.groupValues[1] + it.groupValues[2] }
+    }
+    val email = remember(job.contact) {
+        Regex("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}")
+            .find(job.contact)?.value
+    }
+    val formUrl = remember(job.contact) { Regex("forms\\.gle/[A-Za-z0-9]+").find(job.contact)?.value }
+    fun openIntent(action: String, uri: String) {
+        try { context.startActivity(Intent(action, Uri.parse(uri))) }
+        catch (_: Exception) { android.widget.Toast.makeText(context, "No compatible app found", android.widget.Toast.LENGTH_SHORT).show() }
+    }
     AlertDialog(
         onDismissRequest = dismiss,
         title = { Text(job.title, fontSize = 19.sp, fontWeight = FontWeight.Bold) },
         text = {
-            Column(Modifier.heightIn(max = 490.dp).verticalScroll(rememberScrollState()),
+            Column(Modifier.heightIn(max = 510.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("${job.employer} • ${job.region} • ${job.type}", color = Muted)
-                Notice(if (job.demo) "Demonstration vacancy only — do not apply. This is not a verified, active job."
-                       else "This listing was entered locally on this device; it is not published to other users.")
-                if (job.pay.isNotBlank()) Text("Pay: ${job.pay}", fontWeight = FontWeight.SemiBold)
+                Notice(
+                    if (job.sourcePage > 0)
+                        "Printed 17 October 2026 • Trinidad Express classifieds, newspaper page ${job.sourcePage}. Real advertisement, but vacancy availability and advertiser identity are NOT independently verified."
+                    else "Local draft stored on your phone only. Other users cannot see or apply to this job."
+                )
+                if (job.needsReview) Notice("CAUTION: Some details in this scanned advertisement are unclear. Check the original newspaper page before relying on the contact or requirements.")
+                if (job.pay.isNotBlank()) Text("Advertised pay: ${job.pay}", fontWeight = FontWeight.Bold)
                 if (job.description.isNotBlank()) Text(job.description)
-                if (job.skills.isNotEmpty()) Text("Desired skills: ${job.skills.joinToString(", ")}")
-                if (job.hardSkills.isNotEmpty()) Text("Required skills: ${job.hardSkills.joinToString(", ")}")
-                if (job.qualification.isNotBlank()) Text("Required qualification: ${job.qualification}")
-                if (job.licence.isNotBlank()) Text("Required licence: ${job.licence}")
-                if (job.years > 0) Text("Preferred experience: ${job.years} years")
+                if (job.skills.isNotEmpty()) Text("Mentioned skills: ${job.skills.joinToString(", ")}")
+                if (job.hardSkills.isNotEmpty()) Text("Mandatory skills: ${job.hardSkills.joinToString(", ")}")
+                if (job.qualification.isNotBlank()) Text("Stated qualification: ${job.qualification}")
+                if (job.licence.isNotBlank()) Text("Stated permit / licence: ${job.licence}")
+                if (job.years > 0) Text("Experience noted: ${job.years} year(s)")
+                if (job.contact.isNotBlank()) {
+                    HorizontalDivider()
+                    Text("How to enquire or apply", fontWeight = FontWeight.Bold)
+                    Text(job.contact, color = Navy)
+                    if (firstNumber != null) OutlinedButton(onClick = { openIntent(Intent.ACTION_DIAL, "tel:$firstNumber") }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Call advertiser")
+                    }
+                    if (firstNumber != null && job.contact.contains("WhatsApp", ignoreCase = true) &&
+                        !job.contact.contains("no WhatsApp", ignoreCase = true)) {
+                        OutlinedButton(onClick = { openIntent(Intent.ACTION_VIEW, "https://wa.me/1868$firstNumber") }, modifier = Modifier.fillMaxWidth()) {
+                            Text("Open WhatsApp")
+                        }
+                    }
+                    if (email != null) OutlinedButton(onClick = { openIntent(Intent.ACTION_SENDTO, "mailto:$email") }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Email advertiser")
+                    }
+                    if (formUrl != null) OutlinedButton(onClick = { openIntent(Intent.ACTION_VIEW, "https://$formUrl") }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Open application form")
+                    }
+                }
                 if (result != null) {
                     HorizontalDivider()
-                    Text(if (result.eligible) "${result.score}% — ${result.label}" else "Not eligible", fontWeight = FontWeight.Bold, color = Teal)
+                    Text(if (result.eligible) "${result.score}% — estimated ${result.label}" else "A stated mandatory requirement is missing",
+                        fontWeight = FontWeight.Bold, color = if (result.eligible) Teal else Color(0xFFAC5138))
                     result.reasons.forEach { Text("✓ $it", fontSize = 13.sp) }
                     result.gaps.forEach { Text("• $it", color = Color(0xFF97513A), fontSize = 13.sp) }
-                    Text("Scores are guidance, not hiring decisions.", fontSize = 12.sp, color = Muted)
+                    Text("A score measures information in the advert only; it does not guarantee eligibility, hiring, accuracy or an open vacancy.", fontSize = 12.sp, color = Muted)
                 }
             }
         },
-        confirmButton = {
-            if (onSave != null) TextButton(onClick = onSave) {
-                Text(if (saved) "Remove saved" else "Save job")
-            }
-        },
+        confirmButton = { if (onSave != null) TextButton(onClick = onSave) { Text(if (saved) "Unsave" else "Save job") } },
         dismissButton = { TextButton(onClick = dismiss) { Text("Close") } }
     )
 }
@@ -390,40 +439,92 @@ private fun JobDetail(job: Job, result: Result?, saved: Boolean, onSave: (() -> 
 @Composable
 private fun FindJobs(data: AppData, jobs: List<Job>, profileReady: Boolean, onEditProfile: () -> Unit, onToggleSave: (Job) -> Unit) {
     var search by rememberSaveable { mutableStateOf("") }
+    var category by rememberSaveable { mutableStateOf("All categories") }
+    var region by rememberSaveable { mutableStateOf("All regions") }
     var onlyEligible by rememberSaveable { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Job?>(null) }
-    val results = jobs.map { it to if (profileReady) match(data.profile, it) else null }
-        .filter { (job, res) ->
-            (search.isBlank() || listOf(job.title, job.region, job.category, job.employer, job.skills.asCsv())
-                .any { it.contains(search, ignoreCase = true) }) && (!onlyEligible || res?.eligible == true)
-        }.sortedByDescending { (_, res) -> res?.score ?: 0 }
-    Scrolling {
-        SectionTitle("Jobs for you", "Explore roles around Trinidad & Tobago.")
-        Notice("OFFLINE DEMO: All starter jobs are examples, not live vacancies. Jobs added in Hire staff stay on this phone.")
-        if (!profileReady) {
+    val categories = remember(jobs) { listOf("All categories") + jobs.map { it.category }.distinct().sorted() }
+    val regions = remember(jobs) {
+        listOf("All regions") + listOf("North", "Central", "South", "East", "Tobago")
+    }
+    fun matchesRegion(job: Job): Boolean {
+        val r = job.region.lowercase()
+        return when (region) {
+            "North" -> listOf("port of spain", "st james", "laventille", "san juan", "caroni").any { it in r }
+            "Central" -> listOf("chaguanas", "couva", "freeport", "cunupia", "caroni", "curepe").any { it in r }
+            "South" -> listOf("san fernando", "south", "palmiste", "marabella", "princes town", "rio claro", "barrackpore", "ste madeleine", "gooding").any { it in r }
+            "East" -> listOf("arima", "tunapuna", "piarco", "trincity", "st augustine", "east", "tacarigua").any { it in r }
+            "Tobago" -> "tobago" in r || "lowlands" in r
+            else -> true
+        }
+    }
+    val results = remember(jobs, data.profile, profileReady, search, category, region, onlyEligible) {
+        jobs.map { it to if (profileReady) match(data.profile, it) else null }
+            .filter { (job, matchResult) ->
+                (search.isBlank() || listOf(job.title, job.employer, job.region, job.category, job.description, job.contact)
+                    .any { it.contains(search, ignoreCase = true) }) &&
+                (category == "All categories" || job.category == category) &&
+                matchesRegion(job) &&
+                (!onlyEligible || matchResult?.eligible == true)
+            }
+            .sortedWith(compareByDescending<Pair<Job, Result?>> { it.second?.score ?: 0 }
+                .thenBy { it.first.title })
+    }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().imePadding(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            SectionTitle("Find a real job", "17 October 2026 • Trinidad Express classifieds")
+            Spacer(Modifier.height(8.dp))
+            Notice("${jobs.count { it.sourcePage > 0 }} positions extracted from this issue. Printed advertisements are not verified active vacancies. Check with the advertiser before applying.")
+        }
+        if (!profileReady) item {
             ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = Color(0xFFE0F5F2))) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Get personalised matches", fontWeight = FontWeight.Bold)
-                    Text("Add your name, skills and preferences to see match scores and mandatory requirement checks.")
-                    Button(onClick = onEditProfile) { Text("Create my profile") }
+                    Text("Personalise your results", fontWeight = FontWeight.Bold)
+                    Text("Add your region, skills or preferred job categories to compare yourself with the stated requirements.")
+                    Button(onClick = onEditProfile) { Text("Set up my profile") }
                 }
             }
         }
-        OutlinedTextField(
-            value = search, onValueChange = { search = it }, modifier = Modifier.fillMaxWidth(),
-            label = { Text("Search jobs, skills or locations") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, singleLine = true
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Eligible only", modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
-            Switch(checked = onlyEligible, onCheckedChange = { onlyEligible = it }, enabled = profileReady)
+        item {
+            OutlinedTextField(
+                value = search, onValueChange = { search = it }, modifier = Modifier.fillMaxWidth(),
+                label = { Text("Search job title, location or employer") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, singleLine = true
+            )
         }
-        Text("${results.size} listing${if (results.size == 1) "" else "s"}", color = Muted, fontSize = 13.sp)
-        if (results.isEmpty()) Notice("No results. Try a different keyword or turn off the eligibility filter.")
-        results.forEach { (job, res) ->
-            JobCard(job, res, job.id in data.saved, onClick = { selected = job })
+        item {
+            Text("Job category", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                categories.forEach { name -> FilterChip(selected = category == name, onClick = { category = name }, label = { Text(name) }) }
+            }
         }
-        Text("No job information is sent to a server. Your searches and profile remain on this device.", color = Muted, fontSize = 12.sp)
+        item {
+            Text("Area", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                regions.forEach { name -> FilterChip(selected = region == name, onClick = { region = name }, label = { Text(name) }) }
+            }
+        }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Meets stated mandatory requirements only", Modifier.weight(1f), fontSize = 13.sp)
+                Switch(checked = onlyEligible, onCheckedChange = { onlyEligible = it }, enabled = profileReady)
+            }
+        }
+        item { Text("${results.size} result(s)", color = Muted, fontSize = 13.sp) }
+        if (results.isEmpty()) item {
+            Notice("Nothing matches these filters. Try All categories, All regions, or a shorter search.")
+            OutlinedButton(onClick = { search = ""; category = "All categories"; region = "All regions"; onlyEligible = false }) { Text("Clear filters") }
+        }
+        items(results, key = { it.first.id }) { (job, result) ->
+            JobCard(job, result, job.id in data.saved) { selected = job }
+        }
+        item {
+            Text("Source: 17 Oct 2026 Trinidad Express, printed pp. 22–24. No background updates or employer verification. Applicant profiles remain private on this phone.", color = Muted, fontSize = 12.sp)
+        }
     }
     selected?.let { job ->
         JobDetail(job, if (profileReady) match(data.profile, job) else null, job.id in data.saved,
@@ -530,43 +631,34 @@ private fun EmployerPosts(localJobs: List<Job>, goToPost: () -> Unit, delete: (J
 
 @Composable
 private fun CandidateDirectory(jobs: List<Job>, own: Candidate, ready: Boolean) {
-    var selectedId by rememberSaveable { mutableStateOf("demo-1") }
-    val selected = jobs.firstOrNull { it.id == selectedId } ?: jobs.first()
-    val candidates = sampleCandidates() + listOfNotNull(own.takeIf { ready && it.visible })
-    val ranked = candidates.map { it to match(it, selected) }.sortedWith(
-        compareByDescending<Pair<Candidate, Result>> { it.second.eligible }.thenByDescending { it.second.score }
-    )
+    var selectedId by rememberSaveable { mutableStateOf("") }
+    val chosen = jobs.firstOrNull { it.id == selectedId } ?: jobs.firstOrNull()
     Scrolling {
-        SectionTitle("Candidate preview", "Compare skills against a selected job.")
-        Notice("DEMONSTRATION ONLY: Sample candidates are fictional. No live applicant directory, messages or employer access exists yet.")
-        Text("Select a job to match", fontWeight = FontWeight.Bold)
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            jobs.forEach { job ->
-                FilterChip(selected = selected.id == job.id, onClick = { selectedId = job.id },
-                    label = { Text(job.title, maxLines = 1) })
+        SectionTitle("Candidate match preview", "Employers: this is not a public applicant database.")
+        Notice("No real applicant accounts are connected. This app will NOT display fictional applicants as if they are looking for work. A shared employer–employee service requires a secure server, accounts and explicit candidate consent.")
+        if (!ready || !own.visible) {
+            Text("No candidate profiles are shared with this employer preview.", fontWeight = FontWeight.SemiBold)
+            Text("A local candidate can optionally appear here by creating a profile and enabling local preview visibility. Nothing is uploaded.", color = Muted)
+        } else {
+            Text("Choose a listed job to compare with the one locally opted-in profile.", fontWeight = FontWeight.SemiBold)
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                jobs.take(25).forEach { job ->
+                    FilterChip(selected = chosen?.id == job.id, onClick = { selectedId = job.id }, label = { Text(job.title) })
+                }
             }
-        }
-        Text("Matches for ${selected.title}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        ranked.forEach { (candidate, result) ->
-            ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
-                modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-                Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Row {
-                        Column(Modifier.weight(1f)) {
-                            Text(candidate.name, fontWeight = FontWeight.Bold)
-                            Text("${candidate.region} • ${candidate.years} years experience", color = Muted, fontSize = 12.sp)
-                        }
-                        Tag(if (candidate.demo) "DEMO" else "LOCAL PROFILE")
+            chosen?.let { job ->
+                val result = match(own, job)
+                ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(own.name, fontWeight = FontWeight.Bold)
+                        Text("Opted-in profile on this device only", color = Muted)
+                        Text(if (result.eligible) "${result.score}% — ${result.label}" else "Stated mandatory requirements not met", color = Teal)
+                        result.reasons.forEach { Text("✓ $it", fontSize = 13.sp) }
+                        result.gaps.forEach { Text("• $it", fontSize = 13.sp) }
                     }
-                    Text(if (result.eligible) "${result.score}% • ${result.label}" else "Not eligible • hard requirements missing",
-                        color = if (result.eligible) Teal else Color(0xFFAC5138), fontWeight = FontWeight.Bold)
-                    Text("Skills: ${candidate.skills.asCsv().ifEmpty { "Not entered" }}", fontSize = 13.sp)
-                    result.reasons.forEach { Text("✓ $it", fontSize = 12.sp) }
-                    result.gaps.forEach { Text("• $it", fontSize = 12.sp, color = Color(0xFF97513A)) }
                 }
             }
         }
-        Text("Scores support human decisions; they do not establish eligibility to work or suitability for hiring.", color = Muted, fontSize = 12.sp)
     }
 }
 
