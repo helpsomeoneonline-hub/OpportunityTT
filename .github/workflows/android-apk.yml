@@ -28,30 +28,33 @@ jobs:
           test -n "$SDKMGR"
           yes | "$SDKMGR" --licenses >/dev/null 2>&1 || true
           "$SDKMGR" "platforms;android-35" "build-tools;35.0.0"
+      - name: Validate imported classifieds data
+        run: python3 android/scripts/validate_jobs.py
       - name: Compile debug APK
         working-directory: android
         run: gradle --no-daemon --stacktrace assembleDebug
       - name: Prepare APK
         run: |
           mkdir -p dist
-          cp android/app/build/outputs/apk/debug/app-debug.apk dist/OpportunityTT-v0.1.0-debug.apk
-          sha256sum dist/OpportunityTT-v0.1.0-debug.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/OpportunityTT-v0.2.0-debug.apk
+          sha256sum dist/OpportunityTT-v0.2.0-debug.apk
       - name: Retain build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OpportunityTT-v0.1.0-debug
-          path: dist/OpportunityTT-v0.1.0-debug.apk
+          name: OpportunityTT-v0.2.0-debug
+          path: dist/OpportunityTT-v0.2.0-debug.apk
           if-no-files-found: error
       - name: Publish downloadable test APK
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.0
-          name: OpportunityTT v0.1.0 (offline demonstration)
+          tag_name: v0.2.0
+          name: OpportunityTT v0.2.0 (offline demonstration)
           body: |
-            First Android test APK. Demonstration jobs and candidates are fictional.
-            Local job posting and matching only; no backend or inter-device accounts.
+            17 October 2026 Trinidad Express classifieds: 97 job positions with publication page and advertised contacts.
+            Advertiser identity, vacancy status and ambiguous scan details are not independently verified.
+            Offline candidate profiles, matching and locally saved employer drafts; no backend or real applicant directory.
             Note: this is a debug-signed test build.
           prerelease: true
-          files: dist/OpportunityTT-v0.1.0-debug.apk
+          files: dist/OpportunityTT-v0.2.0-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
