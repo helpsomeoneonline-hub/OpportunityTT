@@ -36,25 +36,25 @@ jobs:
       - name: Prepare APK
         run: |
           mkdir -p dist
-          cp android/app/build/outputs/apk/debug/app-debug.apk dist/OpportunityTT-v0.2.0-debug.apk
-          sha256sum dist/OpportunityTT-v0.2.0-debug.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/OpportunityTT-v0.3.0-debug.apk
+          sha256sum dist/OpportunityTT-v0.3.0-debug.apk
       - name: Retain build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OpportunityTT-v0.2.0-debug
-          path: dist/OpportunityTT-v0.2.0-debug.apk
+          name: OpportunityTT-v0.3.0-debug
+          path: dist/OpportunityTT-v0.3.0-debug.apk
           if-no-files-found: error
       - name: Publish downloadable test APK
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.2.0
-          name: OpportunityTT v0.2.0 (offline demonstration)
+          tag_name: v0.3.0
+          name: OpportunityTT v0.3.0 (real classified edition)
           body: |
             17 October 2026 Trinidad Express classifieds: 97 job positions with publication page and advertised contacts.
             Advertiser identity, vacancy status and ambiguous scan details are not independently verified.
-            Offline candidate profiles, matching and locally saved employer drafts; no backend or real applicant directory.
+            Redesigned home, search, full job detail, application tracker, job sharing, user-data backup and local employer drafts. No live backend.
             Note: this is a debug-signed test build.
           prerelease: true
-          files: dist/OpportunityTT-v0.2.0-debug.apk
+          files: dist/OpportunityTT-v0.3.0-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
