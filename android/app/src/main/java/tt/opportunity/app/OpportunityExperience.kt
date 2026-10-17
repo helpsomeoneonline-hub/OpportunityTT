@@ -358,11 +358,13 @@ private fun V3JobCard(
                         color = Subtle, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
                     )
                 }
-                IconButton(onClick = onToggle, modifier = Modifier.size(44.dp)) {
-                    Icon(
-                        if (saved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                        if (saved) "Remove saved job" else "Save job", tint = if (saved) Blue else Subtle
-                    )
+                if (job.sourcePage > 0) {
+                    IconButton(onClick = onToggle, modifier = Modifier.size(44.dp)) {
+                        Icon(
+                            if (saved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                            if (saved) "Remove saved job" else "Save job", tint = if (saved) Blue else Subtle
+                        )
+                    }
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -386,7 +388,7 @@ private fun V3JobCard(
             }
             HorizontalDivider(color = Color(0xFFEAF0F4))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("17 Oct 2026 • Printed classifieds", color = Subtle, fontSize = 11.sp,
+                Text(if (job.sourcePage > 0) "17 Oct 2026 • Printed classifieds" else "Local private draft", color = Subtle, fontSize = 11.sp,
                     modifier = Modifier.weight(1f))
                 Text("View job", color = Blue, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 Spacer(Modifier.width(4.dp))
