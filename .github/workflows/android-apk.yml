@@ -17,15 +17,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
       - name: Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Install Android platform
+      - name: Ensure Android SDK platform
         run: |
-          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          echo "ANDROID_HOME=$ANDROID_HOME"
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - name: Compile debug APK
         working-directory: android
