@@ -183,7 +183,8 @@ private fun parseJob(o: JSONObject) = Job(
 
 class LocalStore(context: Context) {
     private val prefs = context.getSharedPreferences("opportunitytt_v1", Context.MODE_PRIVATE)
-    fun load(): AppData = try {
+    fun load(): AppData {
+        return try {
         val raw = prefs.getString("data", null) ?: return AppData()
         val o = JSONObject(raw)
         val jobs = o.optJSONArray("localJobs") ?: JSONArray()
@@ -193,7 +194,8 @@ class LocalStore(context: Context) {
             localJobs = (0 until jobs.length()).mapNotNull { jobs.optJSONObject(it)?.let(::parseJob) },
             saved = (0 until saved.length()).map { saved.optString(it) }.toSet()
         )
-    } catch (_: Exception) { AppData() }
+        } catch (_: Exception) { AppData() }
+    }
     fun save(data: AppData) {
         val o = JSONObject().apply {
             put("profile", data.profile.toJson())
