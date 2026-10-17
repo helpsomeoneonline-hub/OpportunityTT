@@ -1,11 +1,11 @@
-# OpportunityTT Android MVP — v0.3.0
+# OpportunityTT Android MVP — v0.4.0
 
 Native Kotlin + Jetpack Compose Android application. Works offline, with no account, network permission, or backend dependency.
 
 ## Included
 - Job seeker profile: skills, qualifications, licences, experience, preferred category and region
-- Redesigned job-seeker home, dedicated search (keyword, regional and industry filters) and full-screen job details
-- Explainable skill/experience/location match scores and hard requirement gating
+- Job-seeker-first redesigned homepage with immediate search, one-tap regional browse and occupation shortcuts; dedicated search (keyword, region and industry filters) and full-screen details
+- Explainable skill/experience/location match indicators and hard-requirement checks (estimated, never eligibility guarantees)
 - Saved jobs and application progress (interested/contacted/applied/interview/offer) stored locally
 - Employer draft job creation and deletion on the same device
 - Candidate privacy: no fictional users or remote applicant directory; employer mode is a transparent private-draft workspace
@@ -21,7 +21,7 @@ Native Kotlin + Jetpack Compose Android application. Works offline, with no acco
 ## Build
 From `android/` run `gradle assembleDebug` with Gradle 8.9, Java 17, Android SDK platform 35.
 APK: `app/build/outputs/apk/debug/app-debug.apk`.
-On the repository's GitHub Actions workflow, a successful build also publishes the APK to a prerelease called `v0.3.0`.
+On the repository's GitHub Actions workflow, a successful build also publishes the APK to a prerelease called `v0.4.0`.
 
 ## Update and signing note
 This debug APK is for testing. CI debug signing credentials can vary from build to build. A durable production keystore kept in a secure secret store will be required before in-place upgrade compatibility can be guaranteed. Preserve `tt.opportunity.app` as the package ID and increment `versionCode` on later releases.
