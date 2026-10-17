@@ -79,16 +79,17 @@ data class Job(
 data class AppData(
     val profile: Candidate = Candidate(),
     val localJobs: List<Job> = emptyList(),
-    val saved: Set<String> = emptySet()
+    val saved: Set<String> = emptySet(),
+    val applications: Map<String, String> = emptyMap()
 )
 
 data class Result(val eligible: Boolean, val score: Int, val label: String, val reasons: List<String>, val gaps: List<String>)
 
 private fun normalize(s: String): String = s.trim().lowercase().replace(Regex("\\s+"), " ")
-private fun commaList(s: String): List<String> = s.split(",").map { it.trim() }.filter { it.isNotEmpty() }.distinctBy { normalize(it) }
-private fun List<String>.asCsv() = joinToString(", ")
+internal fun commaList(s: String): List<String> = s.split(",").map { it.trim() }.filter { it.isNotEmpty() }.distinctBy { normalize(it) }
+internal fun List<String>.asCsv() = joinToString(", ")
 
-private fun match(candidate: Candidate, job: Job): Result {
+internal fun match(candidate: Candidate, job: Job): Result {
     val skills = candidate.skills.map(::normalize).toSet()
     val qualifications = candidate.qualifications.map(::normalize).toSet()
     val licences = candidate.licences.map(::normalize).toSet()
@@ -133,7 +134,7 @@ private fun match(candidate: Candidate, job: Job): Result {
     return Result(true, score, label, reasons, gaps)
 }
 
-private fun loadPublishedJobs(context: Context): List<Job> =
+internal fun loadPublishedJobs(context: Context): List<Job> =
     try {
         context.assets.open("classified_jobs_20261017.json").bufferedReader().use { reader ->
             val arr = JSONObject(reader.readText()).getJSONArray("jobs")
@@ -181,18 +182,34 @@ class LocalStore(context: Context) {
         val o = JSONObject(raw)
         val jobs = o.optJSONArray("localJobs") ?: JSONArray()
         val saved = o.optJSONArray("saved") ?: JSONArray()
+        val stages = o.optJSONObject("applications") ?: JSONObject()
         AppData(
             profile = o.optJSONObject("profile")?.let(::parseCandidate) ?: Candidate(),
             localJobs = (0 until jobs.length()).mapNotNull { jobs.optJSONObject(it)?.let(::parseJob) },
-            saved = (0 until saved.length()).map { saved.optString(it) }.toSet()
+            saved = (0 until saved.length()).map { saved.optString(it) }.toSet(),
+            applications = stages.keys().asSequence().associateWith { stages.optString(it) }
         )
         } catch (_: Exception) { AppData() }
+    }
+    fun readBackup(): String = prefs.getString("data", null) ?: JSONObject().toString()
+    fun restoreBackup(raw: String): AppData {
+        val parsed = JSONObject(raw)
+        require(parsed.has("profile") || parsed.has("saved") || parsed.has("localJobs")) { "Not an OpportunityTT backup" }
+        val old = prefs.getString("data", null)
+        prefs.edit().putString("data", raw).commit()
+        val out = load()
+        if (old != null && raw.isNotBlank() && out == AppData()) {
+            prefs.edit().putString("data", old).commit()
+            throw IllegalArgumentException("Invalid saved content")
+        }
+        return out
     }
     fun save(data: AppData) {
         val o = JSONObject().apply {
             put("profile", data.profile.toJson())
             put("localJobs", JSONArray().apply { data.localJobs.forEach { put(it.toJson()) } })
             put("saved", JSONArray(data.saved.toList()))
+            put("applications", JSONObject(data.applications))
         }
         prefs.edit().putString("data", o.toString()).apply()
     }
@@ -201,7 +218,7 @@ class LocalStore(context: Context) {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { OpportunityTTApp() }
+        setContent { OpportunityExperience() }
     }
 }
 
