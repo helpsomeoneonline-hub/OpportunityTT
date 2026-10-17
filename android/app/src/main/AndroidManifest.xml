@@ -3,6 +3,8 @@
     <application
         android:allowBackup="false"
         android:label="OpportunityTT"
+        android:icon="@drawable/opportunity_mark"
+        android:roundIcon="@drawable/opportunity_mark"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
