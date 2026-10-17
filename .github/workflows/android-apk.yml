@@ -1,0 +1,56 @@
+name: Build OpportunityTT Android APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Install Android platform
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Compile debug APK
+        working-directory: android
+        run: gradle --no-daemon --stacktrace assembleDebug
+      - name: Prepare APK
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/OpportunityTT-v0.1.0-debug.apk
+          sha256sum dist/OpportunityTT-v0.1.0-debug.apk
+      - name: Retain build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpportunityTT-v0.1.0-debug
+          path: dist/OpportunityTT-v0.1.0-debug.apk
+          if-no-files-found: error
+      - name: Publish downloadable test APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.0
+          name: OpportunityTT v0.1.0 (offline demonstration)
+          body: |
+            First Android test APK. Demonstration jobs and candidates are fictional.
+            Local job posting and matching only; no backend or inter-device accounts.
+            Note: this is a debug-signed test build.
+          prerelease: true
+          files: dist/OpportunityTT-v0.1.0-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
