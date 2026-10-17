@@ -24,7 +24,10 @@ jobs:
       - name: Ensure Android SDK platform
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          SDKMGR="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' | sort -V | tail -n 1)"
+          test -n "$SDKMGR"
+          yes | "$SDKMGR" --licenses >/dev/null 2>&1 || true
+          "$SDKMGR" "platforms;android-35" "build-tools;35.0.0"
       - name: Compile debug APK
         working-directory: android
         run: gradle --no-daemon --stacktrace assembleDebug
