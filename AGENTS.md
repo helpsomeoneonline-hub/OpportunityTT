@@ -10,3 +10,6 @@ This repository uses `docs/APP_DESIGN_QUALITY.md` as its app design, UX and engi
 - Every feature needs working loading, empty, error, permission and recovery states as applicable; protect user data, privacy and app update compatibility.
 - After code changes, run relevant available build/tests and say exactly what was verified; do not claim emulator/device testing without it.
 - Use `.github/pull_request_template.md` when reviewing changes. Never modify unrelated app flows without authorization.
+
+## NON-NEGOTIABLE APK UPGRADE SIGNING RULE
+For every distributed Android APK, follow docs/ANDROID_SIGNING.md. Preserve applicationId and existing user data, strictly increment versionCode, reuse the app's persistent PRIVATE signing key from GitHub Actions Secrets, verify its pinned SHA-256 certificate fingerprint, and fail publication on absent or mismatched signing settings. NEVER publish APKs signed by a disposable runner-generated debug keystore as upgradeable builds. Do not commit/expose a signing key/password. Do not claim seamless upgrades without testing installed-old to installed-new; an APK public certificate cannot recover the private key.
